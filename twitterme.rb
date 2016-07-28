@@ -1,8 +1,8 @@
-require 'dotenv'
 require 'better_errors'
 require 'httparty'
+require 'twitter_oauth'
 
-
+require 'dotenv'
 Dotenv.load
 
 require 'sinatra'
@@ -31,21 +31,58 @@ end
 
 get '/login' do
 	# redirect to twitter oauth login
+
+	client = TwitterOAuth::Client.new(
+	    :consumer_key => ENV['TWITTER_API_KEY'],
+	    :consumer_secret => ENV['TWITTER_API_SECRET']
+	)
+
+	session[:request_token] = client.request_token(:oauth_callback => ENV['TWITTER_REDIRECT'])
+
+    redirect session[:request_token].authorize_url
 end
 
 get '/receive_code' do
+    # get the code from params
 
-   # get the code from params
+   	client = TwitterOAuth::Client.new(
+	    :consumer_key => ENV['TWITTER_API_KEY'],
+	    :consumer_secret => ENV['TWITTER_API_SECRET']
+	)
+    
+	auth_response = client.authorize(
+	  session[:request_token].token,
+	  session[:request_token].secret,
+	  :oauth_verifier => params[:oauth_verifier]
+	)
+
+	session[:access_token] = auth_response.token
+	session[:secret] = auth_response.secret
+
+	session[:user] = {
+	   screen_name: auth_response.params[:screen_name],
+	   twitter_id: auth_response.params[:user_id]
+	}
+
+    redirect '/secure'
+end
 
 
-queryAnswer = HTTParty.get('https://api.website.com/query/location', 
-                            :query => {"token" => token})
+get '/secure' do
+	erb :tweet_form
+end
 
+post '/secure/tweets' do
+    tweet = params[:tweet]
 
+	client = TwitterOAuth::Client.new(
+		:consumer_key => ENV['TWITTER_API_KEY'],
+		:consumer_secret => ENV['TWITTER_API_SECRET'],
+		:token => session[:access_token],
+		:secret => session[:secret]
+	)
 
-
-
-
+	client.update(tweet[:message]) if client.authorized?
 end
 
 

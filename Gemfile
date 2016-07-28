@@ -4,6 +4,8 @@ source "https://rubygems.org"
 
 gem "sinatra"
 gem "httparty"
+gem "twitter_oauth"
+
 
 group :development, :test do
 	gem "dotenv"
